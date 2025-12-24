@@ -14,9 +14,8 @@ import numpy as np
 from scipy.signal import fftconvolve
 import soundfile as sf
 import librosa
-import pyroomacoustics as pra
+import rir_generator as rir
 import matplotlib.pyplot as plt
-
 
 
 # ===================================================
@@ -62,14 +61,6 @@ def load_clean_wav(filename, target_fs=16000):
 # ===================================================
 # 2. GEOMETRY HELPERS
 # ===================================================
-
-def fill_line(p1, p2, n_points):
-    p1 = np.asarray(p1, dtype=float)
-    p2 = np.asarray(p2, dtype=float)
-    t = np.linspace(0.0, 1.0, int(n_points))
-    xy = p1[:, None] + (p2 - p1)[:, None] * t
-    return xy[0, :], xy[1, :]
-
 
 def generate_room_and_positions():
     """
@@ -145,40 +136,76 @@ def generate_room_and_positions():
 # 3. COMPUTE RIRs
 # ===================================================
 
-def compute_rirs_pyroom(L, mic_positions, s_first, s_second, s_noise):
-    absorption = 1.0 - beta
-
-    room = pra.ShoeBox(
-        L, fs=fs,
-        absorption=absorption,
-        max_order=order
-    )
-
-    # Add mics
-    mic_array = pra.MicrophoneArray(mic_positions, fs)
-    room.add_microphone_array(mic_array)
-
-    # Add sources
-    room.add_source(s_first)
-    room.add_source(s_second)
-    room.add_source(s_noise)
-
-    room.compute_rir()
-
+def compute_rirs_rir_generator(L, mic_positions, s_first, s_second, s_noise):
+    """
+    Compute RIRs using rir_generator library.
+    
+    Parameters:
+    - L: room dimensions [x, y, z]
+    - mic_positions: microphone positions, shape (3, M)
+    - s_first, s_second, s_noise: source positions [x, y, z]
+    
+    Returns:
+    - h_first, h_second, h_noise: RIRs for each source, shape (M, n_rir)
+    """
     M = mic_positions.shape[1]
-    h_first = np.zeros((M, n_rir), np.float32)
-    h_second = np.zeros((M, n_rir), np.float32)
-    h_noise = np.zeros((M, n_rir), np.float32)
-
-    for m in range(M):
-        rir0 = room.rir[m][0]
-        rir1 = room.rir[m][1]
-        rir2 = room.rir[m][2]
-
-        h_first[m, :min(n_rir, len(rir0))] = rir0[:n_rir]
-        h_second[m, :min(n_rir, len(rir1))] = rir1[:n_rir]
-        h_noise[m, :min(n_rir, len(rir2))] = rir2[:n_rir]
-
+    
+    # Transpose mic_positions to shape (M, 3) as required by rir_generator
+    r = mic_positions.T  # Shape: (M, 3)
+    
+    # Generate RIR for first speaker
+    h_first = rir.generate(
+        c=c,
+        fs=fs,
+        r=r.tolist(),
+        s=s_first.tolist(),
+        L=L.tolist(),
+        beta=beta,
+        nsample=n_rir,
+        mtype=rir.mtype.omnidirectional,
+        order=order,
+        dim=3,
+        orientation=0,
+        hp_filter=hp_filter
+    )  # Returns shape (n_rir, M)
+    
+    # Generate RIR for second speaker
+    h_second = rir.generate(
+        c=c,
+        fs=fs,
+        r=r.tolist(),
+        s=s_second.tolist(),
+        L=L.tolist(),
+        beta=beta,
+        nsample=n_rir,
+        mtype=rir.mtype.omnidirectional,
+        order=order,
+        dim=3,
+        orientation=0,
+        hp_filter=hp_filter
+    )  # Returns shape (n_rir, M)
+    
+    # Generate RIR for noise source
+    h_noise = rir.generate(
+        c=c,
+        fs=fs,
+        r=r.tolist(),
+        s=s_noise.tolist(),
+        L=L.tolist(),
+        beta=beta,
+        nsample=n_rir,
+        mtype=rir.mtype.omnidirectional,
+        order=order,
+        dim=3,
+        orientation=0,
+        hp_filter=hp_filter
+    )  # Returns shape (n_rir, M)
+    
+    # Transpose to shape (M, n_rir) to match expected format
+    h_first = h_first.T.astype(np.float32)
+    h_second = h_second.T.astype(np.float32)
+    h_noise = h_noise.T.astype(np.float32)
+    
     return h_first, h_second, h_noise
 
 
@@ -202,10 +229,13 @@ def main():
     # ================================================
     #      1. LOAD CLEAN SPEECH (4 WAV FILES)
     # ================================================
-    speech_11 = load_clean_wav("male_11.wav")
-    speech_12 = load_clean_wav("male_12.wav")
-    speech_21 = load_clean_wav("female_21.wav")
-    speech_22 = load_clean_wav("female_22.wav")
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    speech_11 = load_clean_wav(os.path.join(current_dir, "male_11.wav"))
+    speech_12 = load_clean_wav(os.path.join(current_dir, "male_12.wav"))
+    speech_21 = load_clean_wav(os.path.join(current_dir, "female_21.wav"))
+    speech_22 = load_clean_wav(os.path.join(current_dir, "female_22.wav"))
 
     print("Loaded WAVs:")
     print("male_11:", len(speech_11))
@@ -241,10 +271,9 @@ def main():
     print("Speaker 2 position:", s_second)
     print("Noise source position:", s_noise)
 
-    h_first, h_second, h_noise = compute_rirs_pyroom(L, mic_positions, s_first, s_second, s_noise)
+    h_first, h_second, h_noise = compute_rirs_rir_generator(L, mic_positions, s_first, s_second, s_noise)
 
     # Plot example of RIR
-    import matplotlib.pyplot as plt
     plt.figure()
     plt.plot(h_first[0])
     plt.title("RIR from Speaker 1 → Mic 1")
@@ -327,6 +356,7 @@ def main():
     sf.write("first_reverb.wav", r_first.T, fs)
     sf.write("second_reverb.wav", r_second.T, fs)
     sf.write("noise.wav", noise_only.T, fs)
+    sf.write("mixture.wav", receivers_mix.T, fs)
 
     print("\nSaved output files:")
     print("first_clean.wav")
