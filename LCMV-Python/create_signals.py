@@ -10,7 +10,9 @@ import rir_generator as rir
 # %% variens
 c_k = 340.0                                       
 c = 340.0
-fs = 16000
+current_dir = os.path.dirname(os.path.abspath(__file__))
+_, fs = sf.read(os.path.join(current_dir, "female_21.wav"))
+print(f"Sampling frequency set to: {fs} Hz")
 n = 4096                                          
 mtype = rir.mtype.omnidirectional   # Corrected Enum usage
 order = -1                                       
