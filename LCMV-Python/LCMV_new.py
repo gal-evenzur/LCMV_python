@@ -25,11 +25,11 @@ root_mac = os.path.join(root_mac, 'wav_files')
 rec_sig_file = os.path.join(root_mac, 'mixed_output.wav') 
 
 noise_tim_st = 0
-noise_tim_fn = 2 # Sec
-first_tim_st = 2.3
-first_tim_fn = 4.3 # Sec
-second_tim_st = 6
-second_tim_fn = 9.5 # Sec
+noise_tim_fn = 1.5 # Sec
+first_tim_st = 2
+first_tim_fn = 3.4 # Sec
+second_tim_st = 5.2
+second_tim_fn = 6.6 # Sec
 
 # Load Audio
 try:
@@ -215,10 +215,23 @@ g_f = np.fft.ifft(G_f_full, axis=0)
 g_f_trc = np.zeros_like(g_f)
 g_f_trc[0:F_R, :] = g_f[0:F_R, :]
 g_f_trc[nfft-F_L:nfft, :] = g_f[nfft-F_L:nfft, :]
-
+# --- PLOTTING FIGURE 4 (Speaker 1 ReIR) ---
 plt.figure(4)
+# Plot the matrix (plots all columns)
 plt.plot(np.fft.ifftshift(g_f_trc.real, axes=0))
-plt.title('ReIR-1st')
+plt.title('ReIR - Speaker 1 (Relative Impulse Response)')
+plt.xlabel('Time Samples')
+plt.ylabel('Amplitude')
+
+# Dynamic Legend Generation
+# Create a list like ['Mic 1', 'Mic 2', 'Mic 3', 'Mic 4']
+mic_labels = [f"Mic {m+1}" for m in range(M)]
+
+# Identify the Reference Mic in the legend
+mic_labels[ref] += " (Ref)" 
+
+plt.legend(mic_labels, loc='upper right')
+plt.grid(True, alpha=0.3) # Adding a grid helps read the chart better
 
 G_f_trc_full = np.fft.fft(g_f_trc, axis=0)
 G_f = G_f_trc_full[:K, :]
@@ -272,7 +285,13 @@ g_s_trc[nfft-F_L:nfft, :] = g_s[nfft-F_L:nfft, :]
 
 plt.figure(6)
 plt.plot(np.fft.ifftshift(g_s_trc.real, axes=0))
-plt.title('ReIR-2nd')
+plt.title('ReIR - Speaker 2 (Relative Impulse Response)')
+plt.xlabel('Time Samples')
+plt.ylabel('Amplitude')
+
+# Re-use the labels
+plt.legend(mic_labels, loc='upper right')
+plt.grid(True, alpha=0.3)
 
 G_s_trc_full = np.fft.fft(g_s_trc, axis=0)
 G_s = G_s_trc_full[:K, :]
