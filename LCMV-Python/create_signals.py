@@ -5,7 +5,10 @@ import soundfile as sf
 import scipy.signal as ss
 import numpy as np
 import os
-
+#--- BEFORE RUNNING ---
+# Ensure 'wav_files' directory exists in the same directory as this script
+# Place  in the 'wav_files' directory the required audio files:
+#   (male_11.wav, male_12.wav, female_21.wav, female_22.wav)
 # --- Main Script ---
 
 # ==========================================
@@ -15,8 +18,9 @@ import os
 c_k = 340.0                                       
 c = 340.0
 current_dir = os.path.dirname(os.path.abspath(__file__))
+wav_dir = os.path.join(current_dir, "wav_files")
 # Get sampling rate from one of the files to ensure consistency
-_, fs = sf.read(os.path.join(current_dir, "female_21.wav"))
+_, fs = sf.read(os.path.join(wav_dir, "female_21.wav"))
 print(f"Sampling frequency set to: {fs} Hz")
 
 n = 4096                                          # RIR Length
@@ -138,10 +142,10 @@ s_second = [x2, y2, high]
 # 3. PREPARE SOURCE SIGNALS
 # ==========================================
 # Load raw audio files
-speech_11 = load_clean_wav(os.path.join(current_dir, "male_11.wav"))
-speech_12 = load_clean_wav(os.path.join(current_dir, "male_12.wav"))
-speech_21 = load_clean_wav(os.path.join(current_dir, "female_21.wav"))
-speech_22 = load_clean_wav(os.path.join(current_dir, "female_22.wav"))
+speech_11 = load_clean_wav(os.path.join(wav_dir, "male_11.wav"))
+speech_12 = load_clean_wav(os.path.join(wav_dir, "male_12.wav"))
+speech_21 = load_clean_wav(os.path.join(wav_dir, "female_21.wav"))
+speech_22 = load_clean_wav(os.path.join(wav_dir, "female_22.wav"))
 
 pad_zeros1 = np.zeros(fs) 
 pad_zeros2 = np.zeros(fs * 2) 
@@ -265,7 +269,7 @@ receivers_mixed = receivers_mixed / np.max(np.abs(receivers_mixed))
 # ==========================================
 # 7. EXPORT
 # ==========================================
-output_path = current_dir
+output_path = wav_dir
 first_clean_file = os.path.join(output_path, 'first_clean.wav')
 second_clean_file = os.path.join(output_path, 'second_clean.wav')
 first_reverb_file = os.path.join(output_path, 'first_reverb.wav')
