@@ -16,6 +16,7 @@ import os
 # ==========================================
 hParams = {
     # Physics & Environment
+    'seed': 42,                    # Random seed for reproducibility
     'sound_speed': 340.0,
     'fs': 44100,                  # Target sampling rate
     'room_height': 3,
@@ -44,12 +45,14 @@ hParams = {
     'mic_indices': [0, 59, 119, 179], 
     
     # Mixing Ratios (dB)
-    'sir': 0,                     # Signal-to-Interference Ratio
+    'sir': -20,                     # Signal-to-Interference Ratio
     'snr_diffuse': 20,            # Diffuse (Ambient) Noise
-    'snr_directional': 20,        # Directional Noise
+    'snr_directional': 2,        # Directional Noise
     'snr_mic': 30                 # Microphone (Sensor) Noise
 }
 
+# Seeded RNG
+rng = np.random.default_rng(hParams['seed'])
 
 # ==========================================
 # 2. MAIN SCRIPT
@@ -68,12 +71,12 @@ if file_fs != hParams['fs']:
 # --- Geometry Setup ---
 
 # Randomize Room Dimensions
-L1 = 4 + 0.1 * np.random.randint(
-    (hParams['room_dim_min']-4)*10, 
+L1 = 4 + 0.1 * rng.integers(
+    (hParams['room_dim_min']-4)*10,
     (hParams['room_dim_max']-4)*10 + 1
 )
-L2 = 4 + 0.1 * np.random.randint(
-    (hParams['room_dim_min']-4)*10, 
+L2 = 4 + 0.1 * rng.integers(
+    (hParams['room_dim_min']-4)*10,
     (hParams['room_dim_max']-4)*10 + 1
 )
 L = [L1, L2, hParams['room_height']]
@@ -86,12 +89,12 @@ end_point_x = room_x - dist_total
 end_point_y = room_y - dist_total
 
 # Randomize center of the array within safe zone
-Radius_X = (end_point_x - dist_total) * np.random.rand() + dist_total
-Radius_Y = (end_point_y - dist_total) * np.random.rand() + dist_total
+Radius_X = (end_point_x - dist_total) * rng.random() + dist_total
+Radius_Y = (end_point_y - dist_total) * rng.random() + dist_total
 
 # Randomize Array Orientation
 angle = 360
-R_angle = np.random.randint(0, angle) 
+R_angle = rng.integers(0, angle) 
 t_full = np.linspace(-np.pi, 2 * np.pi, int(angle + angle/2)) 
 t = t_full[R_angle : R_angle + int(angle/2)]
 
@@ -123,14 +126,14 @@ while next_speech:
     next_speech = False
     
     # Randomize Speaker 1
-    rand1 = np.random.randint(0, int(angle/2))
-    w1 = 0.01 * np.random.randint(1, 315)
+    rand1 = rng.integers(0, int(angle/2))
+    w1 = 0.01 * rng.integers(1, 315)
     x1 = x[rand1] + hParams['noise_var'] * np.sin(w1)
     y1 = y[rand1] + hParams['noise_var'] * np.cos(w1)
 
     # Randomize Speaker 2
-    rand2 = np.random.randint(0, int(angle/2))
-    w2 = 0.01 * np.random.randint(1, 315)
+    rand2 = rng.integers(0, int(angle/2))
+    w2 = 0.01 * rng.integers(1, 315)
     x2 = x[rand2] + hParams['noise_var'] * np.sin(w2)
     y2 = y[rand2] + hParams['noise_var'] * np.cos(w2)
 
@@ -202,14 +205,14 @@ s_noise = np.array([Radius_X, Radius_Y, hParams['mic_height']])
 d_noise = 0
 
 while d_noise < hParams['noise_source_dist']:
-    x_noise = hParams['wall_margin'] + 0.01 * np.random.randint(0, 100) * (room_x - 2 * hParams['wall_margin'])
-    y_noise = hParams['wall_margin'] + 0.01 * np.random.randint(0, 100) * (room_y - 2 * hParams['wall_margin'])
+    x_noise = hParams['wall_margin'] + 0.01 * rng.integers(0, 100) * (room_x - 2 * hParams['wall_margin'])
+    y_noise = hParams['wall_margin'] + 0.01 * rng.integers(0, 100) * (room_y - 2 * hParams['wall_margin'])
     s_noise = np.array([x_noise, y_noise, hParams['mic_height']])
     d_noise = np.linalg.norm(s_noise - middle)
 
 # 2. Generate Directional Noise Signal
 noise_len_needed = receiver_first.shape[0] - hParams['rir_length'] + 1
-noise_temp_mono = np.random.randn(noise_len_needed) 
+noise_temp_mono = rng.standard_normal(noise_len_needed)
 noise_temp = np.tile(noise_temp_mono[:, np.newaxis], (1, 1))
 
 # 3. Process Directional Noise
@@ -256,7 +259,7 @@ A_n_direction = A_x / (10**(hParams['snr_directional']/20.0))
 A_n_mic = A_x / (10**(hParams['snr_mic']/20.0))
 
 # 5. Generate Microphone Noise
-mic_noise = A_n_mic * np.random.randn(min_len, M)
+mic_noise = A_n_mic * rng.standard_normal((min_len, M))
 
 # Final Mix
 receivers_mixed = (receivers_speech + 
