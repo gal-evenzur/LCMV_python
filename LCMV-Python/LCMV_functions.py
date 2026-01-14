@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 def stft(x, win, hop, nfft):
     """
@@ -110,3 +111,17 @@ def istft(stft_matrix, awin, swin, hop, nfft, fs):
     t = np.arange(xlen) / fs
     
     return x, t
+
+
+
+def plot_stft(SIG, fs, R, K, L, title_suffix):
+    T = np.arange(L) / fs * R
+    F = np.arange(K) * fs / 2 / (K - 1)
+
+    plt.figure()
+    plt.imshow(20 * np.log10(np.abs(SIG) + np.finfo(float).eps), 
+               aspect='auto', origin='lower', extent=[T[0], T[-1], F[0], F[-1]])
+    plt.xlabel('Time[Sec]', fontsize=14)
+    plt.ylabel('Frequency[Hz]', fontsize=14)
+    plt.colorbar()
+    plt.title(f'STFT {title_suffix}')

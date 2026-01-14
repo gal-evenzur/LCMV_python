@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import soundfile as sf
 import scipy.signal as ss
 import scipy.linalg as sl
-from LCMV_functions import stft, istft
+from LCMV_functions import *
 import os
 
 # ==========================================
@@ -12,6 +12,7 @@ import os
 
 # %% Prepare
 plt.close('all')
+plotflag = False
 
 # %% Upload signals and set parameters
 
@@ -26,10 +27,10 @@ rec_sig_file = os.path.join(root_mac, 'mixed_output.wav')
 
 noise_tim_st = 0
 noise_tim_fn = 1.5 # Sec
-first_tim_st = 2
-first_tim_fn = 3.4 # Sec
-second_tim_st = 5.2
-second_tim_fn = 6.6 # Sec
+first_tim_st = 2.3
+first_tim_fn = 3.1 # Sec
+second_tim_st = 5.5
+second_tim_fn = 6.3 # Sec
 
 # Load Audio
 try:
@@ -46,28 +47,12 @@ if not os.path.exists(res_dir):
 ref = 0 # Python 0-based index (MATLAB was 1, so ref+1 became 2. Here we use column 1 as ref)
 
 # Signal splitting
-# MATLAB: signal_proc = rec_sig(:,1); signal_mics = rec_sig(:,2:5);
 if rec_sig.ndim > 1:
-    signal_proc = rec_sig[:, 0]
-    signal_mics = rec_sig[:, 1:5] # Columns 2 to 5 (indices 1,2,3,4)
-    # signal_ref = rec_sig(:,ref+1) -> Column 2 in MATLAB -> Index 1 in Python
-    signal_ref = rec_sig[:, ref + 1] 
+    signal_mics = rec_sig # All channels as mic. signals
+    signal_ref = rec_sig[:, ref] # Reference mic. signal, which is the first mic.
 else:
     print("Error: Input file must be multichannel")
     exit()
-
-signal_mics_file = os.path.join(res_dir, 'signal_mics.wav')
-signal_proc_file = os.path.join(res_dir, 'signal_proc.wav')
-signal_ref_file = os.path.join(res_dir, 'signal_ref.wav')
-
-sf.write(signal_mics_file, signal_mics, fs)
-
-# Normalize and write
-norm_proc = 0.9 * signal_proc / np.max(np.abs(signal_proc))
-sf.write(signal_proc_file, norm_proc, fs)
-
-norm_ref = 0.9 * signal_ref / np.max(np.abs(signal_ref))
-sf.write(signal_ref_file, norm_ref, fs)
 
 
 # %% STFT of mic. signals
@@ -99,17 +84,7 @@ for i in range(M):
     # Ensure correct slicing if stft returns slightly more frames due to rounding
     z_k[i, :, :] = stft_mat[:, :L]
 
-# Visualization 1
-T = np.arange(L) / fs * R
-F = np.arange(K) * fs / 2 / (K - 1)
-
-plt.figure(1)
-plt.imshow(20 * np.log10(np.abs(z_k[0, :, :]) + np.finfo(float).eps), 
-           aspect='auto', origin='lower', extent=[T[0], T[-1], F[0], F[-1]])
-plt.xlabel('Time[Sec]', fontsize=14)
-plt.ylabel('Frequency[Hz]', fontsize=14)
-plt.colorbar()
-plt.title('STFT Channel 1')
+plot_stft(z_k[0, :, :], fs, R, K, L, 'Channel 1')
 
 
 # %% Generate noise correlation matrix & apply Cholesky decomposition
@@ -360,5 +335,6 @@ sf.write(first_channel_file, norm_first, fs)
 norm_second = 0.9 * second_channel / np.max(np.abs(second_channel))
 sf.write(second_channel_file, norm_second, fs)
 
-plt.show()
+if plotflag:
+    plt.show()
 print("Processing complete. Files saved in 'Results' folder.")
