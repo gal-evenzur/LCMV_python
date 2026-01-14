@@ -79,7 +79,7 @@ z = signal_mics.T # (M, Samples)
 wlen = 1024
 R = int(wlen / 4) # Hop size
 nfft = wlen
-K = int(nfft / 2 + 1)
+K = int(nfft / 2 + 1) # n_freq_bins which interest us
 
 # MATLAB: win = hamming(wlen, 'periodic');
 win = ss.windows.hamming(wlen, sym=False) 
@@ -135,7 +135,7 @@ noise_cor = np.zeros((K, M, M), dtype=complex)
 noise_cor_chol = np.zeros((K, M, M), dtype=complex)
 inv_chol = np.zeros((K, M, M), dtype=complex)
 
-for k in range(K):
+for k in range(K): # For each frequency bin
     temp_noise = z_n[:, k, :]
     # Correlation: (1/N) * X * X'
     noise_cor[k, :, :] = temp_noise @ temp_noise.conj().T / temp_noise.shape[1]
@@ -178,26 +178,34 @@ G_f = np.zeros((K, M), dtype=complex)
 for k in range(K):
     temp_first = z_f[:, k, :]
     
-    # MATLAB: inv_chol \ temp_first
-    # Since we ensured inv_chol is Upper Triangular (like MATLAB), we can solve.
+    # CODE CONTEXT: Inside the frequency loop (k)
+
+    # --- Step 1: Whitening ---
+    # We want: x_tilde = U_inv * x
+    # Solving linear system 'U * x_tilde = x' is mathematically equivalent to 'x_tilde = inv(U) * x'
+    # inv_chol[k] is our Matrix U.
     temp_first_w = sl.solve(inv_chol[k, :, :], temp_first)
-    
-    z_f_cor_temp = temp_first_w @ temp_first_w.conj().T / temp_first_w.shape[1]
-    
-    # Eigen decomposition
-    # Numpy eigh returns (eigenvalues, eigenvectors)
+
+    # --- Step 2: Calculate R_tilde_xx ---
+    # Calculate Covariance of the whitened signal (R_tilde_xx)
+    N = temp_first_w.shape[1]
+    z_f_cor_temp = temp_first_w @ temp_first_w.conj().T / N
+
+    # --- Step 3: PCA (Eigen Decomposition) ---
+    # finding the Eigenvectors (vals, vecs)
     vals, vecs = np.linalg.eigh(z_f_cor_temp)
-    # Max eigenvalue is at the end
+
+    # The function returns eigenvalues in ascending order.
+    # We want the largest one (The dominant signal direction).
+    # This is v_max
     fi = vecs[:, -1]
-    
-    # Re-coloring: noise_cor_chol * fi
-    # noise_cor_chol is Upper triangular
-    temp = noise_cor_chol[k, :, :].conj().T @ fi # WAIT: MATLAB says: noise_cor_chol * fi
-    # Re-checking MATLAB logic:
-    # noise_cor_chol = chol(R) -> U. 
-    # G_f calculation uses 'noise_cor_chol * fi'.
+
+    # --- Step 4: Re-coloring ---
+    # We want: h = U * v_max
+    # noise_cor_chol[k] is U.
+    # We multiply U by the eigenvector fi
     temp = noise_cor_chol[k, :, :] @ fi # Use standard matrix multiplication
-    
+
     G_f[k, :] = temp / temp[ref] # Normalize by reference mic
 
 # Handle outliers / division by zero

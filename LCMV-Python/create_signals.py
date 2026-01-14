@@ -45,9 +45,9 @@ hParams = {
     'mic_indices': [0, 59, 119, 179], 
     
     # Mixing Ratios (dB)
-    'sir': -20,                     # Signal-to-Interference Ratio
+    'sir': 0,                     # Signal-to-Interference Ratio
     'snr_diffuse': 20,            # Diffuse (Ambient) Noise
-    'snr_directional': 2,        # Directional Noise
+    'snr_directional': 20,        # Directional Noise
     'snr_mic': 30                 # Microphone (Sensor) Noise
 }
 
@@ -240,11 +240,12 @@ receiver_first = receiver_first / np.max(np.abs(receiver_first))
 receiver_second = receiver_second / np.max(np.abs(receiver_second))
 
 # Apply SIR (Speaker Balance)
+# The row below is weird...
 A_x_before = (np.mean(np.std(receiver_first)) + np.mean(np.std(receiver_second))) / 2
 Ax_SIR = A_x_before / (10**(hParams['sir']/20.0))
 receivers_speech = Ax_SIR * receiver_first + receiver_second
 
-# Determine overall level for Noise Scaling
+# Determine overall levelhParams['sir'] for Noise Scaling
 A_x = np.mean(np.std(receivers_speech))
 
 # Align Lengths
